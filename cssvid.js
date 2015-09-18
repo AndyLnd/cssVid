@@ -9,7 +9,6 @@
   }
 }(this, function () {
 
-
   function loadImages(imageList, callback) {
     var imagesToLoad = Object.keys(imageList).length;
     for (var key in imageList) {
@@ -28,18 +27,16 @@
     }
   }
 
-
   function error(msg) {
     console.error ? console.error(msg) : console.log(msg);
   }
-
 
   function now() {
     return (new Date).getTime();
   }
 
   function cssVid(opts) {
-    var root = typeof opts.root === 'object' ? opts.root : document.querySelector(opts.root);
+    var root = typeof opts.root === 'string' ? document.querySelector(opts.root) : opts.root;
     if (!root) return error('No root element found.');
     if (!opts.videos || opts.videos.length === 0) return error('Needs list of videos.');
 
@@ -73,16 +70,18 @@
       }
     }
 
+    var playContainer = document.createElement('div');
+    playContainer.style.cssText = 'width:' + opts.width + 'px;height:' + opts.height + 'px;overflow:hidden';
+    root.appendChild(playContainer);
+
+    function notloaded() {
+      error('Not loaded yet.');
+    }
+
     var controls = {
-      play: function () {
-        error('Not loaded yet.');
-      },
-      pause: function () {
-        error('Not loaded yet.');
-      },
-      isPlaying: function () {
-        error('Not loaded yet.');
-      }
+      play: notloaded,
+      pause: notloaded,
+      isPlaying: notloaded
     };
 
     loadImages(videos, startPlayer);
@@ -90,7 +89,7 @@
     function drawFrame(root, vid, frame) {
       var x = -(frame % vid.cols) * opts.width;
       var y = -Math.floor(frame / vid.cols) * opts.height;
-      root.style.backgroundPosition = x + 'px ' + y + 'px';
+      vid.img.style.cssText = 'transform:translate3d(' + x + 'px,' + y + 'px,0)';
     }
 
     function startPlayer() {
@@ -102,18 +101,23 @@
       var currFrame = 0;
       var startTime = 0;
 
-
       function play() {
+        if(!isPlaying) return;
         requestAnimationFrame(play);
         var newFrame = Math.floor((now() - startTime) / delay);
         newFrame %= currVid.frames;
         if (newFrame !== currFrame) {
           currFrame = newFrame;
-          drawFrame(root, currVid, currFrame);
+          drawFrame(root, currVid, reverse ? currVid.frames - currFrame : currFrame);
         }
       }
 
       controls.play = function (key, playReverse) {
+        if(typeof key === 'undefined' && currVid){
+          rafId = requestAnimationFrame(play);
+          isPlaying=true;
+          return;
+        }
         if (!videos[key]) return error('Video not found: ' + key);
         if (currVid !== videos[key]) {
           currFrame = 0;
@@ -124,8 +128,10 @@
 
         delay = 1000 / currVid.fps;
         isPlaying = true;
-        root.style.backgroundImage = 'url(' + currVid.url + ')';
-        root.style.backgroundSize = (currVid.cols * opts.width) + 'px ' + (currVid.rows * opts.height) + 'px';
+        playContainer.innerHTML = '';
+        playContainer.appendChild(currVid.img);
+        currVid.img.width = currVid.cols * opts.width;
+        currVid.img.height = currVid.rows * opts.height;
         rafId = requestAnimationFrame(play);
       };
       controls.pause = function () {
@@ -136,17 +142,10 @@
         return isPlaying;
       };
       if (isPlaying) controls.play(Object.keys(videos)[0], false)
-
     }
-
-
-    root.style.cssText = 'display:block;width:' + opts.width + 'px;height:' + opts.height + 'px;';
 
     return controls;
   }
 
   return cssVid;
-
-
-}))
-;
+}));
